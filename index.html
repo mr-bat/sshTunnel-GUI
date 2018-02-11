@@ -12,6 +12,18 @@
     and Electron <script>document.write(process.versions.electron)</script>.
 
     <script>
+      var currentTime = new Date(),
+        hours = currentTime.getHours(),
+        minutes = currentTime.getMinutes(),
+        seconds = currentTime.getSeconds();
+
+	      if (minutes < 10) {
+	        minutes = "0" + minutes;
+        }
+
+	      document.write(" Current Time is: " + hours + ":" + minutes + ":" + seconds)
+    </script>
+    <script>
       // You can also require other files to run in this process
       require('./renderer.js')
     </script>
