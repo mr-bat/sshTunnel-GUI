@@ -10,11 +10,71 @@ const url = require('url')
 // Keep a global reference of the window object, if you don't, the window will
 // be closed automatically when the JavaScript object is garbage collected.
 let mainWindow
+let tnl = false
 
 function createWindow () {
   // Create the browser window.
   mainWindow = new BrowserWindow({width: 800, height: 600})
+  if (tnl === false) {
+    tnl = true;
+    let socks = require('socksv5'),
+        Client = require('ssh2').Client;
+    let config = {
+        //The socks5 proxy will listen on host:port
+        localProxy: {
+            host: '127.0.0.1',
+            port: 1234
+        },
+        //Settings used to connect remote SSH server.
+        sshConfig: {
+            host: '198.199.124.75',
+            port: 22,
+            username: 'root',
+            privateKey: require('fs').readFileSync(`${require('os').homedir()}/.ssh/id_rsa`),
+            // passphrase: 'your_as_long_as_cat_passphrase_to_the_private_key'
+        }
+        // Password only authentication example:
+        // sshConfig: {
+        //     host: 'remote.domain.name.or.ip.address',
+        //     port: 22,
+        //     username: 'username',
+        //     password: 'password'
+        // }
+    }
 
+    socks.createServer(function(info, accept, deny) {
+        var conn = new Client();
+        conn.on('ready', function() {
+            conn.forwardOut(info.srcAddr,
+                info.srcPort,
+                info.dstAddr,
+                info.dstPort,
+                function(err, stream) {
+                    if (err) {
+                        conn.end();
+                        return deny();
+                    }
+
+                    var clientSocket;
+                    if (clientSocket = accept(true)) {
+                        stream.pipe(clientSocket).pipe(stream).on('close', function() {
+                            conn.end();
+                        });
+                    } else
+                        conn.end();
+                });
+        }).on('error', function(err) {
+            deny();
+        }).connect(config.sshConfig);
+    }).listen(config.localProxy.port, config.localProxy.host, function() {
+        console.log('SOCKSv5 proxy server started on ' + config.localProxy.host + ':' + config.localProxy.port);
+        mainWindow.loadURL(url.format({
+          pathname: path.join(__dirname, 'index.html'),
+          protocol: 'file:',
+          slashes: true
+        }))
+    }).useAuth(socks.auth.None());
+  }
   // and load the index.html of the app.
   mainWindow.loadURL(url.format({
     pathname: path.join(__dirname, 'index.html'),
